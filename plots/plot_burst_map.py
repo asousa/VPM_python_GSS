@@ -2,7 +2,7 @@ from mpl_toolkits.basemap import Basemap
 import numpy as np
 import datetime
 import logging
-from compute_ground_track import compute_ground_track
+from compute_ground_track import load_TLE_library, get_position_from_TLE_library
 from matplotlib.cm import get_cmap
 from configparser import ConfigParser
 
@@ -39,30 +39,38 @@ def plot_burst_map(fig, gps_data,
 
     if plot_trajectory:
         try:
-            if TLE_file:
-                try:
-                    with open(TLE_file,'r') as file:
-                        TLE = file.read().split('\n')
-                        logger.info(
-                            f'loaded TLE file {TLE_file}')
-                except:
-                    logger.warning(f'failed to load TLE file {TLE_file}')
-            else:
-                logger.info('using default TLE')
-                # A default TLE, from mid-may 2020.
-                TLE = ["1 45120U 19071K   20153.15274580 +.00003602 +00000-0 +11934-3 0  9995",
-                       "2 45120 051.6427 081.8638 0012101 357.8092 002.2835 15.33909680018511"]
+            # (Here's the old method, where you pass a TLE to it as text)
+            # if TLE_file:
+            #     try:
+            #         with open(TLE_file,'r') as file:
+            #             TLE = file.read().split('\n')
+            #             logger.info(
+            #                 f'loaded TLE file {TLE_file}')
+            #     except:
+            #         logger.warning(f'failed to load TLE file {TLE_file}')
+            # else:
+            #     logger.info('using default TLE')
+            #     # A default TLE, from mid-may 2020.
+            #     TLE = ["1 45120U 19071K   20153.15274580 +.00003602 +00000-0 +11934-3 0  9995",
+            #            "2 45120 051.6427 081.8638 0012101 357.8092 002.2835 15.33909680018511"]
+
+            # 10-27-2020: This version to find the closest TLE in the JSON file
+            # You can change the length of the ground track plot by changing t1, t2, and tvec
+            TLE_lib = load_TLE_library(TLE_file)
 
             avg_ts = np.mean([k['timestamp'] for k in gps_data if k['time_status'] > 20])
             t_mid = datetime.datetime.utcfromtimestamp(avg_ts)
             t1 = t_mid - datetime.timedelta(minutes=15)
             t2 = t_mid + datetime.timedelta(minutes=15)
 
-            traj, tvec = compute_ground_track(TLE, t1, t2, tstep=datetime.timedelta(seconds=10))
+            # traj, tvec = compute_ground_track(TLE, t1, t2, tstep=datetime.timedelta(seconds=10))
+            
+            tvec = [(t1 + datetime.timedelta(seconds=int(x))) for x in np.arange(0,30*60, 10)]
+            simtime = [x.replace(tzinfo=datetime.timezone.utc).timestamp() for x in tvec]
+            traj,_ = get_position_from_TLE_library(simtime, TLE_lib)
 
             tlats = traj[:,1]
             tlons = traj[:,0]
-            simtime = [x.replace(tzinfo=datetime.timezone.utc).timestamp() for x in tvec]
 
             mid_ind = np.argmin(np.abs(np.array(tvec) - t_mid))
             zx,zy = m(tlons, tlats)

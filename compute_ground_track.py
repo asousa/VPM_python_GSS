@@ -150,7 +150,8 @@ def fill_missing_GPS_entries(G_data, TLE_lib=None):
         
         # "solution_status" is defined by Novatel OEM7 manual, table 80.
         # 0 = good solution, anything else is problematic
-        if G['solution_status']!=0: 
+        # time status > 20 = at least a coarse time lock
+        if (G['solution_status']!=0) and (G['time_status'] > 20): 
 
             # Bad GPS entry! We can rebuild him... we have the technology
             t = G['timestamp']

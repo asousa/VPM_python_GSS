@@ -12,6 +12,8 @@ from data_handlers import decode_status, decode_uBBR_command, decode_burst_comma
 from db_handlers import get_packets_within_range
 from log_handlers import get_last_access_time, log_access_time
 from cli_plots import plot_burst_data, plot_burst_map
+from compute_ground_track import fill_missing_GPS_entries
+
 
 import matplotlib.pyplot as plt
 import logging
@@ -283,7 +285,8 @@ def main():
 
     do_plots = int(config['burst_config']['do_plots']) > 0
     do_maps  = int(config['burst_config']['do_maps']) > 0
-    
+    fill_GPS = int(config['burst_config']['fill_missing_GPS']) > 0
+
  
 
 
@@ -323,6 +326,12 @@ def main():
 
             # Process
             bursts = process_bursts_from_database(packet_db, [pair], max_lookback_time=max_lookback_time)
+
+            # Replace any bad GPS positions with TLE-propagated data
+            if fill_GPS:
+                for B in bursts:
+                    fill_missing_GPS_entries(B['G'])
+
 
             # Save output files    
             save_burst_to_file_tree(bursts, out_root, file_types)

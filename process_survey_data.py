@@ -12,6 +12,9 @@ from data_handlers import decode_packets_TLM, decode_packets_CSV, decode_survey_
 from db_handlers import get_packets_within_range, get_time_range_for_updated_packets
 from log_handlers import get_last_access_time, log_access_time
 import logging
+from compute_ground_track import fill_missing_GPS_entries
+
+
 
 def get_timestamp(x):
     logger = logging.getLogger('get_timestamp')
@@ -177,6 +180,8 @@ def main():
     file_types = [x.strip() for x in file_types.split(',')]
     S_data = []
 
+    fill_GPS = int(config['survey_config']['fill_missing_GPS']) > 0
+
     # Get the last time we ran this script:
     last_timestamp = get_last_access_time(access_log,'process_survey_data')
     last_time = datetime.datetime.utcfromtimestamp(last_timestamp)
@@ -211,6 +216,11 @@ def main():
             S_data.extend(from_packets)
 
         if S_data:
+
+            # Replace any missing GPS positions with TLE-propagated data
+            if fill_GPS:
+                fill_missing_GPS_entries([x['GPS'][0] for x in S_data])
+
             save_survey_to_file_tree(S_data, out_root, file_types=file_types)
     
     log_access_time(access_log, 'process_survey_data')
